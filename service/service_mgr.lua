@@ -117,7 +117,6 @@ local function register_global()
 
 	function cmd.REPORT(m)
 		mgr[m] = true
-		skynet.watch(m)
 	end
 
 	local function add_list(all, m)
@@ -176,7 +175,7 @@ skynet.start(function()
 		end
 	end)
 	local handle = skynet.localname ".service"
-	if  handle ~= 0 then
+	if  handle then
 		skynet.error(".service is already register by ", skynet.address(handle))
 		skynet.exit()
 	else

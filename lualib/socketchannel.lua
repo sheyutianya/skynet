@@ -26,6 +26,7 @@ function socket_channel.channel(desc)
 	local c = {
 		__host = assert(desc.host),
 		__port = assert(desc.port),
+		__backup = desc.backup,
 		__auth = desc.auth,
 		__response = desc.response,	-- It's for session mode
 		__request = {},	-- request seq { response func or session }	-- It's for order mode
@@ -135,6 +136,9 @@ local function dispatch_by_order(self)
 				if result ~= socket_error then
 					errmsg = result_ok
 				end
+				self.__result[co] = socket_error
+				self.__result_data[co] = errmsg
+				skynet.wakeup(co)
 				wakeup_all(self, errmsg)
 			end
 		end
@@ -149,42 +153,74 @@ local function dispatch_function(self)
 	end
 end
 
+local function connect_backup(self)
+	if self.__backup then
+		for _, addr in ipairs(self.__backup) do
+			local host, port
+			if type(addr) == "table" then
+				host, port = addr.host, addr.port
+			else
+				host = addr
+				port = self.__port
+			end
+			skynet.error("socket: connect to backup host", host, port)
+			local fd = socket.open(host, port)
+			if fd then
+				self.__host = host
+				self.__port = port
+				return fd
+			end
+		end
+	end
+end
+
 local function connect_once(self)
+	if self.__closed then
+		return false
+	end
 	assert(not self.__sock and not self.__authcoroutine)
 	local fd = socket.open(self.__host, self.__port)
 	if not fd then
-		return false
+		fd = connect_backup(self)
+		if not fd then
+			return false
+		end
 	end
-	self.__authcoroutine = coroutine.running()
+
 	self.__sock = setmetatable( {fd} , channel_socket_meta )
 	skynet.fork(dispatch_function(self), self)
 
 	if self.__auth then
+		self.__authcoroutine = coroutine.running()
 		local ok , message = pcall(self.__auth, self)
 		if not ok then
 			close_channel_socket(self)
 			if message ~= socket_error then
+				self.__authcoroutine = false
 				skynet.error("socket: auth failed", message)
 			end
 		end
 		self.__authcoroutine = false
+		if ok and not self.__sock then
+			-- auth may change host, so connect again
+			return connect_once(self)
+		end
 		return ok
 	end
 
-	self.__authcoroutine = false
 	return true
 end
 
 local function try_connect(self , once)
-	local t = 100
+	local t = 0
 	while not self.__closed do
 		if connect_once(self) then
 			if not once then
 				skynet.error("socket: connect to", self.__host, self.__port)
 			end
-			return
+			return true
 		elseif once then
-			error(string.format("Connect to %s:%d failed", self.__host, self.__port))
+			return false
 		end
 		if t > 1000 then
 			skynet.error("socket: try to reconnect", self.__host, self.__port)
@@ -197,7 +233,7 @@ local function try_connect(self , once)
 	end
 end
 
-local function block_connect(self, once)
+local function check_connection(self)
 	if self.__sock then
 		local authco = self.__authcoroutine
 		if not authco then
@@ -211,26 +247,36 @@ local function block_connect(self, once)
 	if self.__closed then
 		return false
 	end
+end
+
+local function block_connect(self, once)
+	local r = check_connection(self)
+	if r ~= nil then
+		return r
+	end
 
 	if #self.__connecting > 0 then
 		-- connecting in other coroutine
 		local co = coroutine.running()
 		table.insert(self.__connecting, co)
 		skynet.wait()
-		-- check connection again
-		return block_connect(self, once)
-	end
-	self.__connecting[1] = true
-	try_connect(self, once)
-	self.__connecting[1] = nil
-	for i=2, #self.__connecting do
-		local co = self.__connecting[i]
-		self.__connecting[i] = nil
-		skynet.wakeup(co)
+	else
+		self.__connecting[1] = true
+		try_connect(self, once)
+		self.__connecting[1] = nil
+		for i=2, #self.__connecting do
+			local co = self.__connecting[i]
+			self.__connecting[i] = nil
+			skynet.wakeup(co)
+		end
 	end
 
-	-- check again
-	return block_connect(self, once)
+	r = check_connection(self)
+	if r == nil then
+		error(string.format("Connect to %s:%d failed", self.__host, self.__port))
+	else
+		return r
+	end
 end
 
 function channel:connect(once)
@@ -260,7 +306,7 @@ local function wait_for_response(self, response)
 end
 
 function channel:request(request, response)
-	assert(block_connect(self))
+	assert(block_connect(self, true))	-- connect once
 
 	if not socket.write(self.__sock[1], request) then
 		close_channel_socket(self)
@@ -287,6 +333,20 @@ function channel:close()
 		self.__closed = true
 		close_channel_socket(self)
 	end
+end
+
+function channel:changehost(host, port)
+	self.__host = host
+	if port then
+		self.__port = port
+	end
+	if not self.__closed then
+		close_channel_socket(self)
+	end
+end
+
+function channel:changebackup(backup)
+	self.__backup = backup
 end
 
 channel_meta.__gc = channel.close

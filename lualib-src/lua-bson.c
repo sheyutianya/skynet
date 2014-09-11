@@ -1083,7 +1083,7 @@ typeclosure(lua_State *L) {
 		"string",	// 5
 		"binary",	// 6
 		"objectid",	// 7
-		"timestamp",// 8
+		"timestamp",    // 8
 		"date",		// 9
 		"regex",	// 10
 		"minkey",	// 11
@@ -1180,7 +1180,6 @@ luaopen_bson(lua_State *L) {
 		{ "timestamp", ltimestamp  },
 		{ "regex", lregex },
 		{ "binary", lbinary },
-		{ "regex", lregex },
 		{ "objectid", lobjectid },
 		{ "decode", ldecode },
 		{ NULL,  NULL },

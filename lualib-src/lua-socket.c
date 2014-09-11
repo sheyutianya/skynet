@@ -14,6 +14,7 @@
 #define BACKLOG 32
 // 2 ** 12 == 4096
 #define LARGE_PAGE_NODE 12
+#define BUFFER_LIMIT (256 * 1024)
 
 struct buffer_node {
 	char * msg;
@@ -245,6 +246,7 @@ lclearbuffer(lua_State *L) {
 	while(sb->head) {
 		return_free_node(L,2,sb);
 	}
+	sb->size = 0;
 	return 0;
 }
 
@@ -263,6 +265,7 @@ lreadall(lua_State *L) {
 		return_free_node(L,2,sb);
 	}
 	luaL_pushresult(&b);
+	sb->size = 0;
 	return 1;
 }
 
@@ -476,6 +479,14 @@ lstart(lua_State *L) {
 	return 0;
 }
 
+static int
+lnodelay(lua_State *L) {
+	struct skynet_context * ctx = lua_touserdata(L, lua_upvalueindex(1));
+	int id = luaL_checkinteger(L, 1);
+	skynet_socket_nodelay(ctx,id);
+	return 0;
+}
+
 int
 luaopen_socketdriver(lua_State *L) {
 	luaL_checkversion(L);
@@ -502,6 +513,7 @@ luaopen_socketdriver(lua_State *L) {
 		{ "lsend", lsendlow },
 		{ "bind", lbind },
 		{ "start", lstart },
+		{ "nodelay", lnodelay },
 		{ NULL, NULL },
 	};
 	lua_getfield(L, LUA_REGISTRYINDEX, "skynet_context");

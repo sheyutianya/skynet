@@ -1,3 +1,71 @@
+v0.7.0 (2014-9-8)
+-----------
+* Use sproto instead of cjson
+* Add message logger
+* Add hmac-sha1
+* Some minor bugfix
+
+v0.6.2 (2014-9-1)
+-----------
+* bugfix: only skynet.call response PTYPE_ERROR
+
+v0.6.1 (2014-8-25)
+-----------
+* bugfix: datacenter.wakeup
+* change struct msg name to avoid conflict in mac
+* improve seri library
+
+v0.6.0 (2014-8-18)
+-----------
+* add sharedata
+* bugfix: service exit before init would not report back
+* add skynet.response and check multicall skynet.ret
+* skynet.newservice throw error when lanuch faild
+* Don't check imported function in snax.hotfix
+* snax service add change SERVICE_PATH and add it to package.path
+* skynet.redirect support string address
+* bugfix: skynet.harbor.link may block
+* add skynet.harbor.queryname to query globalname
+* add cluster.proxy 
+* add DEBUG command exit (send a message to lua service by DEBUG)
+* add DEBUG command run (debug_console command inject)
+* bugfix : socketchannel connect once
+* bugfix : mongo driver
+
+v0.5.2 (2014-8-11)
+-----------
+* Bugfix : httpd request
+* Bugifx : http chunked mode
+* Add : httpc
+* timer support more than 497 days
+
+v0.5.1 (2014-8-4)
+-----------
+* Bugfix : http module
+* Bugfix : multicast local channel delete
+* Bugfix : socket.read(fd)
+
+v0.5.0 (2014-7-28)
+-----------
+* skynet.exit will quit service immediately.
+* Add snax.gateserver, snax.loginserver, snax.msgserver
+* Simplify clientsocket lib
+* mongo driver support replica set
+* config file support read from ENV
+* add simple httpd (see examples/simpleweb.lua)
+
+v0.4.2 (2014-7-14)
+-----------
+* Bugfix : invalid negative socket id 
+* Add optional TCP_NODELAY support
+* Add worker thread weight
+* Add skynet.queue
+* Bugfix: socketchannel
+* cluster can throw error
+* Add readline and writeline to clientsocket lib
+* Add cluster.reload to reload config file
+* Add datacenter.wait
+
 v0.4.1 (2014-7-7)
 -----------
 * Add SERVICE_NAME in loader
